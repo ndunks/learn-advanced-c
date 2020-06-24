@@ -1,8 +1,8 @@
 CFLAGS = -lpthread
-all: server client
+all: server
 
 clean:
-	rm server client
+	rm server
 
 watch_%:
 	nodemon --delay 0.5 -w $*.c -x '$(CC) $(CFLAGS) -o $* $*.c && ./$* $(ARGS)'
