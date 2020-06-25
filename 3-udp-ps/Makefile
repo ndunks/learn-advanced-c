@@ -1,10 +1,10 @@
 CFLAGS = -lpthread
-main:
+all: main broadcast
 
 clean:
 	rm main
 
-watch:
-	nodemon --delay 0.5 -w main.c -x '$(CC) $(CFLAGS) -o main main.c && ./main $(ARGS)'
+watch_%:
+	nodemon --delay 0.5 -w $*.c -x '$(CC) $(CFLAGS) -o $* $*.c && ./$* $(ARGS)'
 
-.PHONY: clean all watch
+.PHONY: clean all watch_%
