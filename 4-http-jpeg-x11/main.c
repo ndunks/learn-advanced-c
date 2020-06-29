@@ -12,6 +12,8 @@
 #define OK 1
 #define FAIL 0
 #define MAX_URL 512
+#define CHUNKED -2
+
 typedef struct http_header_line
 {
     char *key;
@@ -30,7 +32,8 @@ typedef struct response
     http_header_status_t status;
     http_header_line_t **headers;
     size_t received;
-    size_t body_size;
+    ssize_t body_size;
+    char *type;
     char *body;
 } response_t;
 
@@ -72,6 +75,7 @@ int parse_headers(char *const buf, response_t *const result)
     size_t index;
     uint16_t header_lines = 0;
     http_header_line_t *line_ptr;
+    result->body_size = -1;
     // HTTP status code
     result->status.version = strtok(buf, " ");
     result->status.code = atoi(strtok(NULL, " "));
@@ -123,20 +127,57 @@ int parse_headers(char *const buf, response_t *const result)
         {
             line_ptr->value++;
         }
+        if (strcmp(line_ptr->key, "Content-Length") == 0)
+        {
+            result->body_size = atol(line_ptr->value);
+        }
+        else if (strcmp(line_ptr->key, "Transfer-Encoding") == 0 &&
+                 strcmp(line_ptr->value, "chunked") == 0)
+        {
+            result->body_size = CHUNKED;
+        }
+        else if (strcmp(line_ptr->key, "Content-Type") == 0)
+        {
+            result->type = line_ptr->value;
+        }
         //printf("C %s = %s\n", line_ptr->key, line_ptr->value);
         pointer = strchr(line_ptr->value, 0) + 2;
         result->headers[index++] = line_ptr;
     }
     result->headers[header_lines] = NULL;
-    index = 0;
-    while ((line_ptr = result->headers[index]) != NULL)
-    {
-        printf("H> %p %s = %s\n", line_ptr, line_ptr->key, line_ptr->value);
-        index++;
-    }
+    // index = 0;
+    // while ((line_ptr = result->headers[index]) != NULL)
+    // {
+    //     printf("H> %p %s = %s\n", line_ptr, line_ptr->key, line_ptr->value);
+    //     index++;
+    // }
     return OK;
 }
-
+void parse_chunked_body(response_t *result)
+{
+    printf("Parsing chungked body\n");
+    size_t offset = 0, chunk_size;
+    result->body_size = 0;
+    char *len_str;
+    int len_str_len = 0;
+    while (*(result->body + offset))
+    {
+        len_str = strtok(result->body + offset, "\r\n");
+        len_str_len = strlen(len_str);
+        chunk_size = strtoul(len_str, NULL, 16);
+        // printf("%lu %lu %d %lu\n", offset, result->body_size, len_str_len, chunk_size);
+        if (len_str_len == 0 || chunk_size == 0)
+        {
+            memset(result->body + result->body_size, 0, len_str_len);
+            break;
+        }
+        offset += len_str_len + 2;
+        memcpy(result->body + result->body_size, result->body + offset, chunk_size);
+        result->body_size += chunk_size;
+        offset += chunk_size;
+        // printf("X: %s\n", result->body + offset);
+    }
+}
 response_t *http_download(const char *input_url)
 {
     /* These variable will be on the stack and cleared after exit the function */
@@ -254,9 +295,16 @@ response_t *http_download(const char *input_url)
         }
     }
 
-    parse_headers(buf, result);
+    if (!parse_headers(buf, result))
+    {
+        return NULL;
+    }
+    if (result->body_size == CHUNKED)
+    {
+        parse_chunked_body(result);
+    }
     printf("Done %lu bytes\n", result->received);
-    printf("---\n%s\n---\n", buf);
+    printf("---\n%s\n---\n", result->body);
 
     // Tear down
     shutdown(fd, SHUT_RDWR);
@@ -276,7 +324,10 @@ int main(int argc, char const *argv[])
         return 1;
     }
     result = http_download(argv[1]);
-    printf("Done %d, allocated %d bytes total\n", result->status.code, total_alloc);
+    if (result != NULL)
+    {
+        printf("Done %s, allocated %d bytes total\n", result->type, total_alloc);
+    }
     /* code */
     return 0;
 }
