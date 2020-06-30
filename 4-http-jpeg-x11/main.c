@@ -10,7 +10,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#include "decode_jpeg.h"
+#include "window.h"
+#include "main.h"
 
 #define OK 1
 #define FAIL 0
@@ -58,7 +59,7 @@ void print_addr(addrin *addr)
 int log_malloc(void **dst, size_t size, const char *log)
 {
     printf("Alloc %s (%lu bytes) ", log, size);
-    *dst = calloc(size, 1);
+    *dst = malloc(size);
     total_alloc += size;
     if (*dst == NULL)
     {
@@ -320,29 +321,42 @@ response_t *http_download(const char *input_url)
 int main(int argc, char const *argv[])
 {
     response_t *result;
-    if (argc <= 1)
+    FILE *f;
+    size_t image_size;
+    char image_file[] = "image.jpg", *image_buf;
+    if ((f = fopen(image_file, "r")) != NULL)
     {
-        printf("No url.\n");
-        return 1;
+        printf("Loading file %s\n", image_file);
+        fseek(f, 0, SEEK_END);
+        image_size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        fread(image_buf, 1, image_size, f);
+        fclose(f);
     }
-    result = http_download(argv[1]);
-    if (result == NULL)
+    else
     {
-        return 1;
-    }
-    if (strcmp(result->type, "image/jpeg") != 0)
-    {
-        printf("Not an image, got %s\n", result->type);
-        return 1;
-    }
-    if (decode_jpeg(result->body, result->body_size) != 0)
-    {
-        return 1;
-    }
-    // FILE *f = fopen("image.jpg", "w");
 
-    // fwrite(result->body, 1, result->body_size, f);
-    // fclose(f);
-    /* code */
-    return 0;
+        if (argc <= 1)
+        {
+            printf("No image url to download.\n");
+            return 1;
+        }
+        result = http_download(argv[1]);
+        if (result == NULL)
+        {
+            return 1;
+        }
+        if (strcmp(result->type, "image/jpeg") != 0)
+        {
+            printf("Not an image, got %s\n", result->type);
+            return 1;
+        }
+        image_buf = result->body;
+        image_size = result->body_size;
+        f = fopen(image_file, "w");
+        fwrite(image_buf, 1, image_size, f);
+        fclose(f);
+    }
+
+    return display_image(image_buf, image_size);
 }
