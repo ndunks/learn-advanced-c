@@ -51,17 +51,17 @@ int display_image(char *input_buffer, size_t size)
 	int screen_num, bgr_pad = 4; // 24 bit/32 bit use 4 bytes
 	struct jpeg_decompress_struct cinfo;
 	struct my_error_mgr jerr;
-	JSAMPARRAY row_buffer; /* Output row buffer */
-	int row_stride;		   /* physical row width in output buffer */
-	printf("Image buf size %lu\n", size);
-
+	JSAMPARRAY row_buffer;
+	int row_stride, offset_w;
+	struct BGR *px;
+	
 	display = XOpenDisplay(NULL);
 	if (display == NULL)
 	{
 		fprintf(stderr, "Cannot open display\n");
 		return 1;
 	}
-	//printf("Screen %d\n", ScreenCount(display));
+
 	screen_num = DefaultScreen(display);
 	screen = ScreenOfDisplay(display, screen_num);
 	if (screen->root_depth < 24)
@@ -107,40 +107,13 @@ int display_image(char *input_buffer, size_t size)
 		jpeg_destroy_decompress(&cinfo);
 		return 1;
 	}
-	/* We may need to do some setup of our own at this point before reading
-	* the data.  After jpeg_start_decompress() we have the correct scaled
-	* output image dimensions available, as well as the output colormap
-	* if we asked for color quantization.
-	* In this example, we need to make an output work buffer of the right size.
-	*/
-	/* JSAMPLEs per row in output buffer */
+
 	row_stride = cinfo.output_width * cinfo.output_components;
 	printf("row: %ux%u\n", cinfo.output_width, cinfo.output_components);
 	/* Make a one-row-high sample array that will go away when done with image */
 	row_buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
 
 	/* Step 6: while (scan lines remain to be read) */
-	/*           jpeg_read_scanlines(...); */
-
-	/* Here we use the library's state variable cinfo.output_scanline as the
-	* loop counter, so that we don't have to keep track ourselves.
-	*/
-	// int a = 0, b;
-	// unsigned int x, y;
-	// JSAMPROW rows[2];
-	// rows[0] = xdata;
-	// rows[1] = rows[0] + row_stride;
-
-	// for (y = 0; y < cinfo.output_height;)
-	// {
-	// 	int n = jpeg_read_scanlines(&cinfo, rows, 2);
-	// 	y += n;
-	// 	rows[0] = rows[n - 1] + row_stride;
-	// 	rows[1] = rows[0] + row_stride;
-	// }
-	int offset_w;
-	char *p;
-	struct BGR *px;
 	while (cinfo.output_scanline < cinfo.output_height)
 	{
 		/* jpeg_read_scanlines expects an array of pointers to scanlines.
@@ -159,7 +132,7 @@ int display_image(char *input_buffer, size_t size)
 	}
 
 	/* Step 7: Finish decompression */
-	(void)jpeg_finish_decompress(&cinfo);
+	jpeg_finish_decompress(&cinfo);
 
 	// /* Step 8: Release JPEG decompression object */
 	jpeg_destroy_decompress(&cinfo);
@@ -181,12 +154,6 @@ int display_image(char *input_buffer, size_t size)
 		// Resize
 		case Expose:
 			XPutImage(display, window, DefaultGC(display, 0), ximage, 0, 0, 0, 0, w, h);
-			// XSetForeground(display, DefaultGC(display, 0), 0x00ff0000); // red
-			// XDrawString(display, window, DefaultGC(display, 0), 32,     32,     tir, strlen(tir));
-			// XDrawString(display, window, DefaultGC(display, 0), 32+256, 32,     tir, strlen(tir));
-			// XDrawString(display, window, DefaultGC(display, 0), 32+256, 32+256, tir, strlen(tir));
-			// XDrawString(display, window, DefaultGC(display, 0), 32,     32+256, tir, strlen(tir));
-			// XSetForeground(display, DefaultGC(display, 0), 0x0000ff00); // green
 			break;
 		// Keyboard key
 		case KeyPress:
