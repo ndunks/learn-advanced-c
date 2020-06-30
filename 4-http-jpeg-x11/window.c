@@ -8,6 +8,11 @@
 #include "main.h"
 #include "window.h"
 
+typedef struct BGR
+{
+	unsigned char blue, green, red, alpha;
+};
+
 struct my_error_mgr
 {
 	struct jpeg_error_mgr pub; /* "public" fields */
@@ -43,7 +48,7 @@ int display_image(char *input_buffer, size_t size)
 	Screen *screen;
 	JDIMENSION w, h;
 	char *xdata;
-	int screen_num;
+	int screen_num, bgr_pad = 4; // 24 bit/32 bit use 4 bytes
 	struct jpeg_decompress_struct cinfo;
 	struct my_error_mgr jerr;
 	JSAMPARRAY row_buffer; /* Output row buffer */
@@ -56,7 +61,7 @@ int display_image(char *input_buffer, size_t size)
 		fprintf(stderr, "Cannot open display\n");
 		return 1;
 	}
-
+	//printf("Screen %d\n", ScreenCount(display));
 	screen_num = DefaultScreen(display);
 	screen = ScreenOfDisplay(display, screen_num);
 	if (screen->root_depth < 24)
@@ -88,7 +93,7 @@ int display_image(char *input_buffer, size_t size)
 
 	printf("JPEG: %ux%ux%d\n", w, h, cinfo.num_components);
 
-	log_malloc(&xdata, 4 * w * h, "ximage");
+	log_malloc(&xdata, bgr_pad * w * h, "xdata");
 
 	/* Step 4: set parameters for decompression */
 	/* In this example, we don't need to change any of the defaults set by
@@ -135,6 +140,7 @@ int display_image(char *input_buffer, size_t size)
 	// }
 	int offset_w;
 	char *p;
+	struct BGR *px;
 	while (cinfo.output_scanline < cinfo.output_height)
 	{
 		/* jpeg_read_scanlines expects an array of pointers to scanlines.
@@ -142,44 +148,21 @@ int display_image(char *input_buffer, size_t size)
 		* more than one scanline at a time if that's more convenient.
 		*/
 		jpeg_read_scanlines(&cinfo, row_buffer, 1);
-		p = xdata + (cinfo.output_scanline * w * 4);
+		px = xdata + (cinfo.output_scanline * w * 4);
 		for (offset_w = 0; offset_w < w; offset_w++)
 		{
-			*p++ = row_buffer[0][ offset_w + 1 ];
-			*p++ = row_buffer[0][ offset_w + 2 ];
-			*p++ = row_buffer[0][ offset_w + 0 ];
-			p++;
+			px->red = row_buffer[0][offset_w * cinfo.output_components];
+			px->green = row_buffer[0][offset_w * cinfo.output_components + 1];
+			px->blue = row_buffer[0][offset_w * cinfo.output_components + 2];
+			px++;
 		}
-		//jpeg_read_scanlines(&cinfo, &(xdata + cinfo.output_scanline * 4 * w), 1);
-		// if (cinfo.output_scanline >= 10)
-		// 	break;
-		/* Assume put_scanline_someplace wants a pointer and sample count. */
-		//put_scanline_someplace(buffer[0], row_stride);
 	}
-	//printf("Done read jpeg\n");
-	// int y = 1;
-	// char *p;
-	// for (int i = 0; i < w; i++)
-	// {
-	// 	p = (xdata + (i * 4 * y));
-	// 	*p++ = 100;
-	// 	*p++ = 0;
-	// 	*p++ = 0;
-	// }
-	// y = 10;
-	// for (int i = 0; i < w; i++)
-	// {
-	// 	p = (xdata + (i * 4 * y));
-	// 	*p++ = 0;
-	// 	*p++ = 255;
-	// 	*p++ = 0;
-	// }
 
 	/* Step 7: Finish decompression */
-	// (void)jpeg_finish_decompress(&cinfo);
+	(void)jpeg_finish_decompress(&cinfo);
 
 	// /* Step 8: Release JPEG decompression object */
-	// jpeg_destroy_decompress(&cinfo);
+	jpeg_destroy_decompress(&cinfo);
 
 	ximage = XCreateImage(screen->display, screen->root_visual, screen->root_depth, ZPixmap, 0,
 						  xdata, w, h, 32, 0);
