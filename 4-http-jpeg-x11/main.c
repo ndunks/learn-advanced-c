@@ -12,6 +12,7 @@
 #define OK 1
 #define FAIL 0
 #define MAX_URL 512
+#define BUFFER_BLOCK_SIZE 10240
 #define CHUNKED -2
 
 typedef struct http_header_line
@@ -53,7 +54,7 @@ void print_addr(addrin *addr)
 
 int log_malloc(void **dst, size_t size, const char *log)
 {
-    printf("Allocating %s (%lu bytes) ", log, size);
+    printf("Alloc %s (%lu bytes) ", log, size);
     *dst = calloc(size, 1);
     total_alloc += size;
     if (*dst == NULL)
@@ -72,8 +73,7 @@ int parse_headers(char *const buf, response_t *const result)
 {
 
     char *start_header, *pointer;
-    size_t index;
-    uint16_t header_lines = 0;
+    int index, header_lines = 0;
     http_header_line_t *line_ptr;
     result->body_size = -1;
     // HTTP status code
@@ -181,8 +181,8 @@ void parse_chunked_body(response_t *result)
 response_t *http_download(const char *input_url)
 {
     /* These variable will be on the stack and cleared after exit the function */
-    size_t usize;
-    int16_t size, tmp, buf_size;
+    size_t usize, buf_size;
+    ssize_t size, tmp;
     /* just pointer, no alloc for this */
     const char *path;
     /* Dynamicaly allocated variable */
@@ -262,16 +262,16 @@ response_t *http_download(const char *input_url)
     }
 
     // allocating buffers and can grow dynamically
-    buf_size = 128;
+    buf_size = BUFFER_BLOCK_SIZE;
     if (!log_malloc((void **)&buf, buf_size, "buffers"))
         return NULL;
 
     size = sprintf(buf, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host);
-    printf("Sending HTTP request %d bytes\n------\n%s", size, buf);
+    printf("Sending HTTP request %lu bytes\n------\n%s", size, buf);
     usize = send(fd, buf, size, 0);
     if (size != usize)
     {
-        printf("Expect write %d but only %lu\n", size, usize);
+        printf("Expect write %lu but only %lu\n", size, usize);
         return NULL;
     }
     else
@@ -287,11 +287,11 @@ response_t *http_download(const char *input_url)
         size = recv(fd, buf + result->received, tmp, 0);
         buf[result->received + size] = 0;
         result->received += size;
-        if (buf_size - result->received < 128)
+        if (buf_size - result->received < BUFFER_BLOCK_SIZE)
         {
-            buf_size += 128;
+            buf_size += BUFFER_BLOCK_SIZE;
             buf = realloc(buf, buf_size);
-            printf("Realloc buffers (%d bytes)\n", buf_size);
+            printf("Realloc buffers (%lu bytes)\n", buf_size);
         }
     }
 
@@ -304,13 +304,12 @@ response_t *http_download(const char *input_url)
         parse_chunked_body(result);
     }
     printf("Done %lu bytes\n", result->received);
-    printf("---\n%s\n---\n", result->body);
+    //printf("---\n%s\n---\n", result->body);
 
     // Tear down
     shutdown(fd, SHUT_RDWR);
     close(fd);
     free(server);
-    free(buf);
     free(url);
     return result;
 }
@@ -326,7 +325,11 @@ int main(int argc, char const *argv[])
     result = http_download(argv[1]);
     if (result != NULL)
     {
-        printf("Done %s, allocated %d bytes total\n", result->type, total_alloc);
+        printf("Done %s %lu bytes.\n%lu bytes received.\n", result->type, result->body_size, result->received);
+        FILE *f = fopen("image.jpg", "w");
+
+        fwrite(result->body, 1, result->body_size, f);
+        fclose(f);
     }
     /* code */
     return 0;
