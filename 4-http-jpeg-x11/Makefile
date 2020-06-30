@@ -9,7 +9,7 @@ clean:
 	rm main
 
 watch_%:
-	nodemon --delay 0.5 -e .c,.h -x 'make && ./$* $(ARGS)'
+	nodemon --delay 0.5 -e .c,.h -x 'make && ./$* $(ARGS) || false'
 
 watch: watch_main
 

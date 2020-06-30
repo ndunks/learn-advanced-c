@@ -329,13 +329,16 @@ int main(int argc, char const *argv[])
         printf("Loading file %s\n", image_file);
         fseek(f, 0, SEEK_END);
         image_size = ftell(f);
+        if (!log_malloc(&image_buf, image_size, "image buffers"))
+        {
+            return 1;
+        }
         fseek(f, 0, SEEK_SET);
         fread(image_buf, 1, image_size, f);
         fclose(f);
     }
     else
     {
-
         if (argc <= 1)
         {
             printf("No image url to download.\n");
