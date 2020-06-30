@@ -9,6 +9,9 @@
 #include <sys/sysinfo.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+
+#include "decode_jpeg.h"
+
 #define OK 1
 #define FAIL 0
 #define MAX_URL 512
@@ -323,14 +326,23 @@ int main(int argc, char const *argv[])
         return 1;
     }
     result = http_download(argv[1]);
-    if (result != NULL)
+    if (result == NULL)
     {
-        printf("Done %s %lu bytes.\n%lu bytes received.\n", result->type, result->body_size, result->received);
-        FILE *f = fopen("image.jpg", "w");
-
-        fwrite(result->body, 1, result->body_size, f);
-        fclose(f);
+        return 1;
     }
+    if (strcmp(result->type, "image/jpeg") != 0)
+    {
+        printf("Not an image, got %s\n", result->type);
+        return 1;
+    }
+    if (decode_jpeg(result->body, result->body_size) != 0)
+    {
+        return 1;
+    }
+    // FILE *f = fopen("image.jpg", "w");
+
+    // fwrite(result->body, 1, result->body_size, f);
+    // fclose(f);
     /* code */
     return 0;
 }
