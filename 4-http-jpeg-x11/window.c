@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <jpeglib.h>
+#include <string.h>
 #include <setjmp.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/shape.h>
@@ -54,7 +55,7 @@ int display_image(char *input_buffer, size_t size)
 	JSAMPARRAY row_buffer;
 	int row_stride, offset_w;
 	struct BGR *px;
-	
+
 	display = XOpenDisplay(NULL);
 	if (display == NULL)
 	{
@@ -99,6 +100,7 @@ int display_image(char *input_buffer, size_t size)
 	/* In this example, we don't need to change any of the defaults set by
 	* jpeg_read_header(), so we do nothing here.
 	*/
+	cinfo.out_color_space = JCS_EXT_BGRX;
 
 	/* Step 5: Start decompressor */
 	if (!jpeg_start_decompress(&cinfo))
@@ -110,9 +112,8 @@ int display_image(char *input_buffer, size_t size)
 
 	row_stride = cinfo.output_width * cinfo.output_components;
 	printf("row: %ux%u\n", cinfo.output_width, cinfo.output_components);
-	/* Make a one-row-high sample array that will go away when done with image */
-	row_buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
-
+	JSAMPROW *prow[2];
+	//
 	/* Step 6: while (scan lines remain to be read) */
 	while (cinfo.output_scanline < cinfo.output_height)
 	{
@@ -120,15 +121,22 @@ int display_image(char *input_buffer, size_t size)
 		* Here the array is only one element long, but you could ask for
 		* more than one scanline at a time if that's more convenient.
 		*/
-		jpeg_read_scanlines(&cinfo, row_buffer, 1);
-		px = xdata + (cinfo.output_scanline * w * 4);
-		for (offset_w = 0; offset_w < w; offset_w++)
-		{
-			px->red = row_buffer[0][offset_w * cinfo.output_components];
-			px->green = row_buffer[0][offset_w * cinfo.output_components + 1];
-			px->blue = row_buffer[0][offset_w * cinfo.output_components + 2];
-			px++;
-		}
+		prow[0] = xdata + (cinfo.output_scanline * w * 4);
+		prow[1] = prow + 1;
+		jpeg_read_scanlines(&cinfo, prow, 2);
+		//
+		// jpeg_read_scanlines(&cinfo, row_buffer, 1);
+		// px = xdata + (cinfo.output_scanline * w * 4);
+		//
+		// for (offset_w = 0; offset_w < w; offset_w++)
+		// {
+		// 	memcpy(px, &row_buffer[0][offset_w * cinfo.output_components], 4);
+		// 	// px =
+		// 	// px->red = row_buffer[0][offset_w * cinfo.output_components];
+		// 	// px->green = row_buffer[0][offset_w * cinfo.output_components + 1];
+		// 	// px->blue = row_buffer[0][offset_w * cinfo.output_components + 2];
+		// 	px++;
+		// }
 	}
 
 	/* Step 7: Finish decompression */
