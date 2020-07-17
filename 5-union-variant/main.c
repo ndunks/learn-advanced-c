@@ -4,7 +4,7 @@
 #define HEXDUMP(var)                                     \
     do                                                   \
     {                                                    \
-        printf(#var " (%lu) :", sizeof(var));             \
+        printf(#var " (%lu) :", sizeof(var));            \
         for (int i = 0; i < sizeof(var); i++)            \
             printf(" %02x", ((unsigned char *)&var)[i]); \
         printf("\n");                                    \
@@ -44,14 +44,14 @@ union number64 {
 
 int main(int argc, char const *argv[])
 {
-    
+
     printf("char %lu, short %lu, int %lu, long %lu, \n",
            sizeof(char), sizeof(short), sizeof(int), sizeof(long));
     LINE;
-    printf("sizeof union number8  = %lu\n", sizeof(number8));
-    printf("sizeof union number16 = %lu\n", sizeof(number16));
-    printf("sizeof union number32 = %lu\n", sizeof(number32));
-    printf("sizeof union number64 = %lu\n", sizeof(number64));
+    SHOW(sizeof(number8), "%lu");
+    SHOW(sizeof(number16), "%lu");
+    SHOW(sizeof(number32), "%lu");
+    SHOW(sizeof(number64), "%lu");
     LINE;
     SHOW(number8.int8 = -1, "%hd");
     SHOW(number8.int8_u = -1, "%hd");
@@ -78,7 +78,7 @@ int main(int argc, char const *argv[])
     LINE;
     char *ptr_char = "\xff\x00\xff\xff\x00\xff\x00";
     union number64 *ptr_number64;
-    ptr_number64 = ptr_char;
+    ptr_number64 = (void *)ptr_char;
     SHOW(*ptr_number64, "%1$lu %1$x");
     SHOW(ptr_number64->int8_u, "%u");
     SHOW(ptr_number64->int16_u, "%u");
