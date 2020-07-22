@@ -14,6 +14,6 @@ clean:
 	rm $(PROGRAMS)
 
 watch_%:
-	nodemon --delay 0.5 -w $*.c -x 'make $* && ./$* $(ARGS)'
+	nodemon --delay 0.5 -w $*.c -x 'make $* && ./$* $(ARGS) || false'
 
 .PHONY: help clean all watch_%
