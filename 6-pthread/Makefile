@@ -1,4 +1,4 @@
-CFLAGS   := -pthread
+CFLAGS   := -pthread -Wall
 PROGRAMS := $(patsubst %.c, %, $(wildcard *.c))
 
 help:
