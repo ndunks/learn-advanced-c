@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>RMS vs AVG </title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <script src="rms-vs-avg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.3.2/dist/chart.min.js"></script>
+</head>
+
+<body>
+    <div class="col">
+        <canvas id="chart" width="1600" height="400"></canvas>
+    </div>
+    <script>
+        chart_data = chart_data.slice(0, 200)
+        var data = new Uint8Array(chart_data.length / 2);
+        var data_freq = new Uint8Array(chart_data.length / 2);
+        var labels = [];
+        var byte = 0
+        // Convert hex to INT8
+        for (var i = 0; i < chart_data.length; i += 2) {
+            byte = parseInt(chart_data[i] + '' + chart_data[i + 1], 16);
+            data[i / 2] = byte;
+            data_freq[i / 2] = (Math.abs(byte - 128) ^ 128)// flipped up
+            labels.push(i / 2);
+        }
+        var periods = 10;
+        var data_silence = [{ x: 0, y: 128 }, { x: data.length - 1, y: 128 }];
+        var data_rms = [];
+        var data_avg = [];
+        var data_index = 0;
+        // calculate
+        for (var i = 0; i < data.length / periods; i++) {
+            data_index = i * periods;
+            var one_period = data_freq.slice(data_index, data_index + periods);
+            var total = one_period.reduce((sum, v) => sum + v, 0);
+            var avg = total / periods;
+            var rms = one_period.reduce((sum, v) => sum += v * v, 0) / periods;
+            rms = rms % 256;
+            console.log('rms', rms);
+            data_avg.push({ x: data_index, y: avg }, { x: data_index + periods / 2, y: avg });
+            data_rms.push({ x: data_index, y: rms }, { x: data_index + periods / 2, y: rms });
+
+        }
+        data_avg.push({ x: labels.length - 1, y: data_avg[data_avg.length - 1].y });
+        data_rms.push({ x: labels.length - 1, y: data_rms[data_rms.length - 1].y });
+
+        var ctx = document.getElementById('chart').getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Silence',
+                        data:data_silence,
+                        borderWidth: 0.5,
+                        borderColor: '#111100',
+                        //tension: 0.5
+                    },
+                    {
+                        label: 'Original',
+                        data,
+                        borderWidth: 1,
+                        borderColor: '#666666',
+                        //tension: 0.5
+                    },
+                    {
+                        label: 'Freq',
+                        data: data_freq,
+                        borderWidth: 1,
+                        borderColor: '#00aaaa',
+                    },
+                    {
+                        label: 'AVG',
+                        data: data_avg,
+                        backgroundColor: "#aa00aa",
+                        borderWidth: 1,
+                        borderColor: '#aa00aa',
+                    },
+                    // {
+                    //     label: 'RMS',
+                    //     data: data_rms,
+                    //     backgroundColor: "#00aa00",
+                    //     borderWidth: 1,
+                    //     borderColor: '#00aa00',
+                    // },
+                ]
+            },
+            options: {
+                responsive: true,
+                //radius: 0,
+                // interaction: {
+                //     intersect: false,
+                //     axis: 'x'
+                // },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'RMS vs AVG (8bit of ' + data.length + ' sample, 8000 Hz, ' + (data.length / 8000) + 's)'
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

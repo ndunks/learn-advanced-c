@@ -1,3 +1,5 @@
 */main
 */*.o
 4-http-jpeg-x11/image.jpg
+8-sound-alsa-vumeter/record_8khz_U8.raw
+8-sound-alsa-vumeter/record.raw
